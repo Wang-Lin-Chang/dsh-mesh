@@ -48,7 +48,13 @@ export class MeshCore {
     } catch { return false }
   }
   release(taskId) {
-    try { fs.unlinkSync(path.join(this.root, 'intent-queue', `task-${taskId}.lock`)); return true } catch { return false }
+    const p = path.join(this.root, 'intent-queue', `task-${taskId}.lock`)
+    for (let i = 0; i < 5; i++) {
+      try { fs.unlinkSync(p); return true } catch {}
+      const end = Date.now() + 20   // 忙等 20ms 重试（Windows 共享冲突瞬态）
+      while (Date.now() < end) {}
+    }
+    return false
   }
 
   // ---------- 完成：任务 → done ----------
@@ -77,7 +83,9 @@ export class MeshCore {
     for (const f of fs.readdirSync(path.join(this.root, 'intent-queue'))) {
       if (!f.endsWith('.lock')) continue
       const taskId = f.replace(/^task-/, '').replace(/\.lock$/, '')
-      const m = /^(.+):(\d+):(\d+)$/.exec(this.readLock(taskId))
+      const lockContent = this.readLock(taskId)
+      if (lockContent === '') continue   // TOCTOU 防护：列目录后锁已被持有者正常释放 → 跳过，不诬告
+      const m = /^(.+):(\d+):(\d+)$/.exec(lockContent)
       if (m === null) continue
       const [_, agentId, pidStr, startSecStr] = m
       const pid = Number(pidStr)
@@ -86,8 +94,15 @@ export class MeshCore {
         const cur = this.procStartSec(pid)
         if (cur !== undefined && cur !== Number(startSecStr)) dead = true   // PID 复用
       }
-      const stale = this.lockAgeMs(taskId) > this.leaseMs
+      let stale = false
+      try { stale = this.lockAgeMs(taskId) > this.leaseMs } catch { continue }   // TOCTOU 防护：stat 失败=锁刚被释放 → 跳过
       if (dead || stale) {
+        // 假阳性防护：任务已完成而锁残留（release 曾失败）——不是死循环/死锁，只清残留锁，不进 dead-letter
+        if (!dead && fs.existsSync(path.join(this.root, 'done', `task-${taskId}.json`))) {
+          try { fs.unlinkSync(path.join(this.root, 'intent-queue', `task-${taskId}.lock`)) } catch {}
+          adopted.push({ taskId, agentId, reason: 'lock-residue (任务已完成，清理残留锁)' })
+          continue
+        }
         // 任务移 dead-letter（保存现场）→ 重新入队（新实例可收养）
         const dl = path.join(this.root, 'shared/dead-letter', `task-${taskId}.json`)
         const src = path.join(this.root, 'intent-queue', `task-${taskId}.json`)
