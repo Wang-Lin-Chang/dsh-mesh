@@ -1,6 +1,6 @@
 {
   "name": "dsh-mesh",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Multi-Agent Mesh: crash-isolated multi-agent coordination — files are the messages, adoption replaces all-hands-on-deck failure. Built on asmfs-spec. Every claim carries an experiment number.",
   "type": "module",
   "files": ["mesh-core.mjs", "agent-worker.mjs", "mesh-test.mjs", "README.md", "LICENSE"],
