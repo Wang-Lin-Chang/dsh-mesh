@@ -8,9 +8,12 @@ import { spawn } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { fileURLToPath } from 'node:url'
+
+const HERE = path.dirname(fileURLToPath(import.meta.url))   // 子进程脚本绝对路径（调度任务 cwd 无关）
 
 const [rootArg, tasksArg, watchArg] = process.argv.slice(2)
-const root = rootArg ?? fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-'))
+const root = (rootArg && rootArg.trim() !== '') ? rootArg : fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-'))   // 无参 = 自建新战场
 const N_TASKS = Number(tasksArg ?? 20)
 const WATCH_MS = Number(watchArg ?? 30000)
 const mesh = new MeshCore(root)
@@ -60,7 +63,7 @@ say('')
   if (chair !== null && isAlive(chair.pid)) {
     say(C.green + `   ✓ 现任主席 ${chair.brainId}（term ${chair.term}）在世，无需补脑` + C.reset)
   } else {
-    for (const id of ['brain-alpha', 'brain-beta', 'brain-gamma']) spawn(process.execPath, ['federal-brain.mjs', root, id], { stdio: 'ignore', windowsHide: true })
+    for (const id of ['brain-alpha', 'brain-beta', 'brain-gamma']) spawn(process.execPath, [path.join(HERE, 'federal-brain.mjs'), root, id], { stdio: 'ignore', windowsHide: true })
     say(C.yellow + `   🔧 脑池补员 3 名（原地重建/补位，任期从 decree 续号）` + C.reset)
   }
   const scouts = loggedPids('scout-')
@@ -71,7 +74,7 @@ say('')
     for (const [id] of aliveScouts) missing.delete(id.split('-reborn')[0])
     for (const id of missing) {
       const i = Number(id.split('-')[1])
-      spawn(process.execPath, ['scout-worker.mjs', root, id, `${i}/30`, 'report'], { stdio: 'ignore', windowsHide: true })
+      spawn(process.execPath, [path.join(HERE, 'scout-worker.mjs'), root, id, `${i}/30`, 'report'], { stdio: 'ignore', windowsHide: true })
     }
     say(C.yellow + `   🔧 侦察兵补员 ${missing.size} 名（现役 ${aliveScouts.length + missing.size}/30）` + C.reset)
   } else {
@@ -123,7 +126,7 @@ try { process.kill(victim.pid, 'SIGKILL') } catch {}
 // ---------- 4. 自愈 + 恢复验证 ----------
 let report
 if (victim.role === 'chair') {
-  spawn(process.execPath, ['federal-brain.mjs', root, 'brain-epsilon'], { stdio: 'ignore', windowsHide: true })
+  spawn(process.execPath, [path.join(HERE, 'federal-brain.mjs'), root, 'brain-epsilon'], { stdio: 'ignore', windowsHide: true })
   const newChair = await waitFor(() => {
     const t = parseTerm()
     return t && t.term > victim.term ? t : null
@@ -141,7 +144,7 @@ if (victim.role === 'chair') {
   const shard = Number(victim.task) % 30
   await sleep(300)
   const swept = mesh.sweep()
-  spawn(process.execPath, ['scout-worker.mjs', root, `${victim.id}-reborn`, `${shard}/30`, 'report'], { stdio: 'ignore', windowsHide: true })
+  spawn(process.execPath, [path.join(HERE, 'scout-worker.mjs'), root, `${victim.id}-reborn`, `${shard}/30`, 'report'], { stdio: 'ignore', windowsHide: true })
   const taskDone = await waitFor(() => fs.existsSync(path.join(root, 'done', `task-${victim.task}.json`)), WATCH_MS)
   const adopted = swept.some(s => s.taskId === victim.task)
   const recovered = taskDone === true && adopted
