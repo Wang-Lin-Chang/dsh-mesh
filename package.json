@@ -1,0 +1,14 @@
+﻿{
+  "name": "dsh-mesh",
+  "version": "0.1.0",
+  "description": "Multi-Agent Mesh: crash-isolated multi-agent coordination — files are the messages, adoption replaces all-hands-on-deck failure. Built on asmfs-spec. Every claim carries an experiment number.",
+  "type": "module",
+  "files": ["mesh-core.mjs", "agent-worker.mjs", "mesh-test.mjs", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node mesh-test.mjs"
+  },
+  "keywords": ["multi-agent", "mesh", "fault-isolation", "asmfs", "reliability", "dsh", "deepseek-harness"],
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6" },
+  "author": "Wang-Lin-Chang"
+}
