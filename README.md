@@ -40,6 +40,27 @@ agent-mesh/
 
 真进程实验装置：`mesh-experiment.mjs`（本机实测）；CI 核心测试：`mesh-test.mjs`（9 断言，三平台）。
 
+## 一脑千军 / One brain, a thousand troops
+
+主流多 Agent 困境：**大脑上下文爆炸**（千军交全文 → 读入 O(千军×千字)）、星型拓扑单点瓶颈、子 Agent 一次性无身份、状态共享竞争、故障全场陪葬。
+
+本项目的战报协议：**小弟干活，只交百字战报，不交全文**。
+
+| 角色 | 职责 |
+|---|---|
+| 脑进程 `brain-worker.mjs` | 不领任务、不读全文，只读 `shared/reports/` 战报流 → 军法先行 → 决策落 `shared/consensus/decision.json` |
+| 侦察兵 `scout-worker.mjs` | 领任务 → 产千字级全文情报（本地存档、不上报）→ 交百字结构化战报 `{summary≤100字, keyNumbers, stateChanges, request}` |
+| 军法 `war-law.mjs` | 声明式规则集（RANGE_SEVERITY / SUMMARY_BOUND / REQUEST_CONSISTENT / TASK_MATCH）——只拦确定违反，零误杀 |
+
+| 实验 | 判决 |
+|---|---|
+| EXP-1 上下文经济学（30 侦察兵 × 90 任务）| 全文 1838.5 KB 存档不上报 → 脑进程实读战报 22.6 KB，压缩比 **98.8%**（目标 ≥90%）|
+| EXP-2 军法拦截 | 2 份伪造战报混入战报流 → 脑进程实审全拦（3 条 + 1 条违规）；90 份真报 0 误杀 |
+| EXP-3 决策正确性 | 脑进程凭战报判"最大威胁 = 任务 57 / 威胁度 100"——与读全文真值一致（压缩不损决策）|
+| EXP-4 千军容错 | 30 兵中 1 兵 kill -9（持锁任务悬空）→ 三证据收养 → 重派 → 120/120 完成，余 29 兵 0 条 error 日志 |
+
+真进程实验装置：`army-experiment.mjs`（本机实测）。
+
 ## 诚实边界 / Honest boundaries
 
 - 单机共享文件系统（跨机器需共享磁盘 + 网络文件系统，未实测不声称）。
